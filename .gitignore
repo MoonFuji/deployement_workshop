@@ -1,0 +1,25 @@
+# Environment files
+.env
+.env.local
+
+# Traefik ACME certificates
+traefik/acme/
+traefik/letsencrypt/
+
+# Docker volumes
+*.log
+logs/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Previous image tracking
+prev_image.txt
+
