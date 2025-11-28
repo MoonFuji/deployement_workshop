@@ -62,7 +62,57 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Deploy to server via SSH
+      - name: Check for config file changes
+        id: check-changes
+        uses: dorny/paths-filter@v2
+        with:
+          filters: |
+            config:
+              - 'docker-compose.yml'
+              - 'deploy.sh'
+              - 'traefik/**'
+              - 'scripts/**'
+              - '!.github/**'
+              - '!app/**'
+
+      - name: Sync config files to server
+        # Always sync config files (they're small and ensure server is up-to-date)
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SRV_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          source: |
+            "docker-compose.yml"
+            "deploy.sh"
+            "traefik/traefik.yml"
+            "scripts/"
+          target: ${{ secrets.DEPLOY_DIR }}
+          strip_components: 0
+
+      - name: Make scripts executable on server
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SRV_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            chmod +x ${{ secrets.DEPLOY_DIR }}/deploy.sh
+            chmod +x ${{ secrets.DEPLOY_DIR }}/scripts/*.sh || true
+
+      - name: Restart Traefik if config changed
+        # Only restart Traefik if config files actually changed
+        if: steps.check-changes.outputs.config == 'true'
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SRV_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            cd ${{ secrets.DEPLOY_DIR }}
+            docker compose up -d traefik || true
+
+      - name: Deploy application
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.SRV_HOST }}
